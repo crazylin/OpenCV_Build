@@ -1,0 +1,59 @@
+name: Build OpenCV on Windows (Static CRT)
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout source
+      uses: actions/checkout@v3
+
+    - name: Install dependencies
+      run: |
+        choco install cmake --installargs 'ADD_CMAKE_TO_PATH=System' -y
+        choco install git -y
+        choco install python3 -y
+        python -m pip install numpy
+
+    - name: Clone OpenCV and opencv_contrib
+      run: |
+        git clone --branch 4.x https://github.com/opencv/opencv.git
+        git clone --branch 4.x https://github.com/opencv/opencv_contrib.git
+
+    - name: Configure build with CMake (static CRT)
+      run: |
+        mkdir build
+        cd build
+        cmake ../opencv ^
+          -G "Visual Studio 17 2022" ^
+          -A x64 ^
+          -DCMAKE_BUILD_TYPE=Release ^
+          -DCMAKE_INSTALL_PREFIX=${{ github.workspace }}\opencv-install ^
+          -DOPENCV_EXTRA_MODULES_PATH=../opencv_contrib/modules ^
+          -DBUILD_EXAMPLES=OFF ^
+          -DBUILD_TESTS=OFF ^
+          -DBUILD_PERF_TESTS=OFF ^
+          -DBUILD_opencv_python3=OFF ^
+          -DCMAKE_C_FLAGS_RELEASE="/MT /O2 /Ob2 /DNDEBUG" ^
+          -DCMAKE_CXX_FLAGS_RELEASE="/MT /O2 /Ob2 /DNDEBUG"
+
+    - name: Build and install
+      run: |
+        cd build
+        cmake --build . --config Release --target INSTALL
+
+    - name: Create ZIP artifact
+      run: |
+        powershell Compress-Archive -Path opencv-install\* -DestinationPath opencv-static-mt.zip
+
+    - name: Upload ZIP artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: opencv-static-mt
+        path: opencv-static-mt.zip
