@@ -1,0 +1,52 @@
+name: Build OpenCV Windows (Static CRT)
+
+on:
+  workflow_dispatch:  # 手动触发
+
+jobs:
+  build:
+    runs-on: windows-2022
+
+    steps:
+    - name: Checkout source
+      uses: actions/checkout@v4
+
+    - name: Install dependencies
+      run: |
+        choco install cmake --installargs 'ADD_CMAKE_TO_PATH=System' -y
+        choco install ninja -y
+
+    - name: Clone OpenCV
+      run: |
+        git clone --depth=1 https://github.com/opencv/opencv.git
+        git clone --depth=1 https://github.com/opencv/opencv_contrib.git
+
+    - name: Configure CMake (static CRT)
+      run: |
+        mkdir build
+        cd build
+        cmake ../opencv ^
+          -DCMAKE_BUILD_TYPE=Release ^
+          -DCMAKE_INSTALL_PREFIX=install ^
+          -DBUILD_SHARED_LIBS=OFF ^
+          -DBUILD_TESTS=OFF ^
+          -DBUILD_PERF_TESTS=OFF ^
+          -DOPENCV_EXTRA_MODULES_PATH=../opencv_contrib/modules ^
+          -G "Ninja" ^
+          -T host=x64 ^
+          -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded
+
+    - name: Build OpenCV
+      run: |
+        cd build
+        cmake --build . --target INSTALL
+
+    - name: Zip the result
+      run: |
+        powershell Compress-Archive -Path build/install/* -DestinationPath opencv-static-mt.zip
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: opencv-static-mt
+        path: opencv-static-mt.zip
