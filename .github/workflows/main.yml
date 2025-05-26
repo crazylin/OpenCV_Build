@@ -1,11 +1,11 @@
-name: Build OpenCV on Windows (Static CRT)
+name: Build OpenCV Windows (Static CRT)
 
 on:
   workflow_dispatch:  # 手动触发
 
 jobs:
   build:
-    runs-on: windows-latest
+    runs-on: windows-2022
 
     steps:
     - name: Checkout source
@@ -14,41 +14,39 @@ jobs:
     - name: Install dependencies
       run: |
         choco install cmake --installargs 'ADD_CMAKE_TO_PATH=System' -y
-        choco install git -y
-        choco install python3 -y
-        python -m pip install numpy
+        choco install ninja -y
 
-    - name: Clone OpenCV and opencv_contrib
+    - name: Clone OpenCV
       run: |
-        git clone --branch 4.x https://github.com/opencv/opencv.git
-        git clone --branch 4.x https://github.com/opencv/opencv_contrib.git
+        git clone --depth=1 https://github.com/opencv/opencv.git
+        git clone --depth=1 https://github.com/opencv/opencv_contrib.git
 
-    - name: Configure build with CMake (static CRT)
+    - name: Configure CMake (static CRT)
       run: |
         mkdir build
         cd build
-        cmake ../opencv -G "Visual Studio 17 2022" -A x64 `
-          -DCMAKE_BUILD_TYPE=Release `
-          -DCMAKE_INSTALL_PREFIX="${{ github.workspace }}\opencv-install" `
-          -DOPENCV_EXTRA_MODULES_PATH=../opencv_contrib/modules `
-          -DBUILD_EXAMPLES=OFF `
-          -DBUILD_TESTS=OFF `
-          -DBUILD_PERF_TESTS=OFF `
-          -DBUILD_opencv_python3=OFF `
-          -DCMAKE_C_FLAGS_RELEASE="/MT /O2 /Ob2 /DNDEBUG" `
-          -DCMAKE_CXX_FLAGS_RELEASE="/MT /O2 /Ob2 /DNDEBUG"
+        cmake ../opencv ^
+          -DCMAKE_BUILD_TYPE=Release ^
+          -DCMAKE_INSTALL_PREFIX=install ^
+          -DBUILD_SHARED_LIBS=OFF ^
+          -DBUILD_TESTS=OFF ^
+          -DBUILD_PERF_TESTS=OFF ^
+          -DOPENCV_EXTRA_MODULES_PATH=../opencv_contrib/modules ^
+          -G "Ninja" ^
+          -T host=x64 ^
+          -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded
 
-    - name: Build and install
+    - name: Build OpenCV
       run: |
         cd build
-        cmake --build . --config Release --target INSTALL
+        cmake --build . --target INSTALL
 
-    - name: Create ZIP artifact
+    - name: Zip the result
       run: |
-        powershell Compress-Archive -Path opencv-install\* -DestinationPath opencv-static-mt.zip
+        powershell Compress-Archive -Path build/install/* -DestinationPath opencv-static-mt.zip
 
-    - name: Upload ZIP artifact
-      uses: actions/upload-artifact@v3.1.3
+    - name: Upload artifact
+      uses: actions/upload-artifact@v3
       with:
         name: opencv-static-mt
         path: opencv-static-mt.zip
