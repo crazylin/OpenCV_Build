@@ -46,7 +46,7 @@ jobs:
         powershell Compress-Archive -Path build/install/* -DestinationPath opencv-static-mt.zip
 
     - name: Upload artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: opencv-static-mt
         path: opencv-static-mt.zip
