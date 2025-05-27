@@ -22,20 +22,21 @@ jobs:
       - name: Create build directory
         run: mkdir build
 
-      - name: Configure OpenCV with CMake (Visual Studio generator)
-        shell: cmd
+      - name: Configure OpenCV with CMake (PowerShell)
+        shell: pwsh
         run: |
-          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" amd64
-          cmake -S "%OPENCV_DIR%" -B "%BUILD_DIR%" ^
-            -DCMAKE_BUILD_TYPE=Release ^
-            -DCMAKE_INSTALL_PREFIX="%BUILD_DIR%\install" ^
-            -DBUILD_SHARED_LIBS=OFF ^
-            -DBUILD_TESTS=OFF ^
-            -DBUILD_PERF_TESTS=OFF ^
-            -DOPENCV_EXTRA_MODULES_PATH="%OPENCV_CONTRIB_DIR%\modules" ^
-            -G "Visual Studio 17 2022" ^
-            -A x64 ^
+          & "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" amd64
+          cmake -S "$PWD\opencv" -B "$PWD\build" `
+            -DCMAKE_BUILD_TYPE=Release `
+            -DCMAKE_INSTALL_PREFIX="$PWD\build\install" `
+            -DBUILD_SHARED_LIBS=OFF `
+            -DBUILD_TESTS=OFF `
+            -DBUILD_PERF_TESTS=OFF `
+            -DOPENCV_EXTRA_MODULES_PATH="$PWD\opencv_contrib\modules" `
+            -G "Visual Studio 17 2022" `
+            -A x64 `
             -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded
+
 
       - name: Build OpenCV
         shell: cmd
