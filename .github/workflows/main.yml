@@ -1,44 +1,50 @@
-name: Build OpenCV Windows (Static CRT)
+name: Build OpenCV Windows
 
 on:
-  workflow_dispatch:  # 手动触发
+  workflow_dispatch:   # 手动触发
 
 jobs:
   build:
     runs-on: windows-2022
 
     steps:
-    - name: Checkout source
-      uses: actions/checkout@v4
+      - name: Checkout source code
+        uses: actions/checkout@v4
+        with:
+          submodules: true  # 如果opencv_contrib是子模块的话
 
-    - name: Install dependencies
-      run: |
-        choco install cmake --installargs 'ADD_CMAKE_TO_PATH=System' -y
-        choco install ninja -y
+      - name: Set up variables
+        run: |
+          echo "OPENCV_DIR=%CD%\opencv" >> $GITHUB_ENV
+          echo "OPENCV_CONTRIB_DIR=%CD%\opencv_contrib" >> $GITHUB_ENV
+          echo "BUILD_DIR=%CD%\build" >> $GITHUB_ENV
 
-    - name: Clone OpenCV
-      run: |
-        git clone --depth=1 https://github.com/opencv/opencv.git
-        git clone --depth=1 https://github.com/opencv/opencv_contrib.git
+      - name: Create build directory
+        run: mkdir build
 
-    - name: Configure CMake (static CRT)
-      run: |
-        mkdir build
-        cd build
-        cmake ../opencv -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=install -DBUILD_SHARED_LIBS=OFF -DBUILD_TESTS=OFF -DBUILD_PERF_TESTS=OFF -DOPENCV_EXTRA_MODULES_PATH=../opencv_contrib/modules -G "Ninja" -T host=x64 -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded
+      - name: Configure OpenCV with CMake (Visual Studio generator)
+        shell: cmd
+        run: |
+          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" amd64
+          cmake -S "%OPENCV_DIR%" -B "%BUILD_DIR%" ^
+            -DCMAKE_BUILD_TYPE=Release ^
+            -DCMAKE_INSTALL_PREFIX="%BUILD_DIR%\install" ^
+            -DBUILD_SHARED_LIBS=OFF ^
+            -DBUILD_TESTS=OFF ^
+            -DBUILD_PERF_TESTS=OFF ^
+            -DOPENCV_EXTRA_MODULES_PATH="%OPENCV_CONTRIB_DIR%\modules" ^
+            -G "Visual Studio 17 2022" ^
+            -A x64 ^
+            -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded
 
+      - name: Build OpenCV
+        shell: cmd
+        run: |
+          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" amd64
+          cmake --build "%BUILD_DIR%" --config Release --target INSTALL
 
-    - name: Build OpenCV
-      run: |
-        cd build
-        cmake --build . --target INSTALL
-
-    - name: Zip the result
-      run: |
-        powershell Compress-Archive -Path build/install/* -DestinationPath opencv-static-mt.zip
-
-    - name: Upload artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: opencv-static-mt
-        path: opencv-static-mt.zip
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: opencv-windows-release
+          path: build\install
