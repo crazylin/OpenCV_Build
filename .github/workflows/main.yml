@@ -25,16 +25,8 @@ jobs:
       run: |
         mkdir build
         cd build
-        cmake ../opencv ^
-          -DCMAKE_BUILD_TYPE=Release ^
-          -DCMAKE_INSTALL_PREFIX=install ^
-          -DBUILD_SHARED_LIBS=OFF ^
-          -DBUILD_TESTS=OFF ^
-          -DBUILD_PERF_TESTS=OFF ^
-          -DOPENCV_EXTRA_MODULES_PATH=../opencv_contrib/modules ^
-          -G "Ninja" ^
-          -T host=x64 ^
-          -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded
+        cmake ../opencv -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=install -DBUILD_SHARED_LIBS=OFF -DBUILD_TESTS=OFF -DBUILD_PERF_TESTS=OFF -DOPENCV_EXTRA_MODULES_PATH=../opencv_contrib/modules -G "Ninja" -T host=x64 -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded
+
 
     - name: Build OpenCV
       run: |
