@@ -3,29 +3,44 @@ name: Build OpenCV Windows
 on:
   workflow_dispatch:   # 手动触发
 
+
 jobs:
-  build:
+  build-opencv:
     runs-on: windows-2022
 
     steps:
-      - name: Checkout source code
+      # 1. 拉取你自己的仓库（假设你的代码）
+      - name: Checkout your repo
         uses: actions/checkout@v4
         with:
-          submodules: true  # 如果opencv_contrib是子模块的话
+          path: myrepo   # 你的源码目录（如果你不需要自己仓库代码，可以删掉）
 
-      - name: Set up variables
-        run: |
-          echo "OPENCV_DIR=%CD%\opencv" >> $GITHUB_ENV
-          echo "OPENCV_CONTRIB_DIR=%CD%\opencv_contrib" >> $GITHUB_ENV
-          echo "BUILD_DIR=%CD%\build" >> $GITHUB_ENV
+      # 2. 拉取 opencv 主仓库
+      - name: Checkout OpenCV
+        uses: actions/checkout@v4
+        with:
+          repository: opencv/opencv
+          path: opencv
+          fetch-depth: 1
 
-      - name: Create build directory
-        run: mkdir build
+      # 3. 拉取 opencv_contrib 仓库（extra modules）
+      - name: Checkout OpenCV contrib
+        uses: actions/checkout@v4
+        with:
+          repository: opencv/opencv_contrib
+          path: opencv_contrib
+          fetch-depth: 1
 
-      - name: Configure OpenCV with CMake (PowerShell)
+      # 4. 设置 VS 环境变量
+      - name: Setup Visual Studio environment
         shell: pwsh
         run: |
           & "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" amd64
+
+      # 5. 运行 CMake 配置
+      - name: Configure OpenCV with CMake
+        shell: pwsh
+        run: |
           cmake -S "$PWD\opencv" -B "$PWD\build" `
             -DCMAKE_BUILD_TYPE=Release `
             -DCMAKE_INSTALL_PREFIX="$PWD\build\install" `
@@ -37,15 +52,15 @@ jobs:
             -A x64 `
             -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded
 
-
-      - name: Build OpenCV
-        shell: cmd
+      # 6. 编译并安装
+      - name: Build and install OpenCV
+        shell: pwsh
         run: |
-          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" amd64
-          cmake --build "%BUILD_DIR%" --config Release --target INSTALL
+          cmake --build "$PWD\build" --config Release --target INSTALL
 
-      - name: Upload build artifacts
+      # 7. （可选）打包产物上传为 artifact
+      - name: Upload OpenCV build artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: opencv-windows-release
-          path: build\install
+          name: opencv-windows
+          path: build/install
