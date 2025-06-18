@@ -1,10 +1,14 @@
 name: Build and Release OpenCV
 
 on:
-  workflow_dispatch:
+    push:
+      branches: [ "main", "master" ]
+    workflow_dispatch: # 允许手动触发
 
 jobs:
   build:
+    permissions:
+      contents: write
     name: Build OpenCV ${{ matrix.opencv_version }}
     runs-on: ${{ matrix.os }}
     strategy:
