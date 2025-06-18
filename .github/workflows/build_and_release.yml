@@ -18,16 +18,10 @@ jobs:
           - { opencv_version: '4.8.0', os: windows-latest, vc_version: 'vc17' }
           - { opencv_version: '4.5.5', os: windows-latest, vc_version: 'vc17' }
           - { opencv_version: '3.4.20', os: windows-2019, vc_version: 'vc16' }
-          - { opencv_version: '2.4.13', os: windows-2016, vc_version: 'vc15' }
+          - { opencv_version: '2.4.13', os: windows-2019, vc_version: 'vc16' }
         linkage: [shared, static]
 
     steps:
-    - name: Set up MSVC for VS 2017
-      if: matrix.version_info.vc_version == 'vc15'
-      uses: ilammy/msvc-dev-cmd@v1
-      with:
-        vsversion: '2017'
-
     - name: Checkout OpenCV
       uses: actions/checkout@v4
       with:
@@ -76,11 +70,7 @@ jobs:
             -D WITH_OPENEXR=OFF"
         fi
 
-        if [ "${{ matrix.version_info.vc_version }}" == "vc15" ]; then
-          cmake ../opencv $CMAKE_FLAGS -G "Visual Studio 15 2017 Win64"
-        else
-          cmake ../opencv $CMAKE_FLAGS
-        fi
+        cmake ../opencv $CMAKE_FLAGS
 
     - name: Build OpenCV
       shell: bash
@@ -135,4 +125,4 @@ jobs:
             - OpenCV 4.8.0 (windows-latest, VS2022/vc17) - shared & static
             - OpenCV 4.5.5 (windows-latest, VS2022/vc17) - shared & static
             - OpenCV 3.4.20 (windows-2019, VS2019/vc16) - shared & static
-            - OpenCV 2.4.13 (windows-2016, VS2017/vc15) - shared & static 
+            - OpenCV 2.4.13 (windows-2019, VS2019/vc16) - shared & static 
