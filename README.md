@@ -60,9 +60,12 @@ In the `jobs.build.strategy.matrix` section, you can add, remove, or change the 
           - { opencv_version: '4.8.0', os: windows-latest } # Uses VS2022
           - { opencv_version: '4.5.5', os: windows-latest }
           - { opencv_version: '3.4.20', os: windows-2019 } # Uses VS2019
+          - { opencv_version: '2.4.13', os: windows-2019 }
         linkage: [shared, static]
 # ...
 ```
+
+> **Note**: The workflow automatically detects older versions like `2.4.13` that do not have a separate `opencv_contrib` repository and adjusts the build process accordingly.
 
 ### Modify CMake Parameters
 

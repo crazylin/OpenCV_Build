@@ -18,6 +18,7 @@ jobs:
           - { opencv_version: '4.8.0', os: windows-latest }
           - { opencv_version: '4.5.5', os: windows-latest }
           - { opencv_version: '3.4.20', os: windows-2019 }
+          - { opencv_version: '2.4.13', os: windows-2019 }
         linkage: [shared, static]
 
     steps:
@@ -29,6 +30,7 @@ jobs:
         path: opencv
 
     - name: Checkout OpenCV Contrib
+      if: matrix.version_info.opencv_version != '2.4.13'
       uses: actions/checkout@v4
       with:
         repository: opencv/opencv_contrib
@@ -50,13 +52,17 @@ jobs:
 
         CMAKE_FLAGS="-D CMAKE_BUILD_TYPE=Release \
           -D BUILD_SHARED_LIBS=${BUILD_SHARED_LIBS_FLAG} \
-          -D OPENCV_EXTRA_MODULES_PATH=../opencv_contrib/modules \
           -D BUILD_EXAMPLES=OFF \
           -D BUILD_TESTS=OFF \
           -D BUILD_PERF_TESTS=OFF \
           -D BUILD_DOCS=OFF \
-          -D WITH_CUDA=OFF \
-          -D OPENCV_ENABLE_NONFREE=ON"
+          -D WITH_CUDA=OFF"
+
+        if [ "${{ matrix.version_info.opencv_version }}" != "2.4.13" ]; then
+          CMAKE_FLAGS="$CMAKE_FLAGS \
+            -D OPENCV_EXTRA_MODULES_PATH=../opencv_contrib/modules \
+            -D OPENCV_ENABLE_NONFREE=ON"
+        fi
 
         if [ "${{ matrix.linkage }}" == "static" ]; then
           CMAKE_FLAGS="$CMAKE_FLAGS \
@@ -123,4 +129,5 @@ jobs:
             Compiled OpenCV builds for multiple versions (shared and static). See attached assets.
             - OpenCV 4.8.0 (windows-latest, VS2022) - shared & static
             - OpenCV 4.5.5 (windows-latest, VS2022) - shared & static
-            - OpenCV 3.4.20 (windows-2019, VS2019) - shared & static 
+            - OpenCV 3.4.20 (windows-2019, VS2019) - shared & static
+            - OpenCV 2.4.13 (windows-2019, VS2019) - shared & static 
