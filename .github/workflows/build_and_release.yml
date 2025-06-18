@@ -58,10 +58,6 @@ jobs:
           -D BUILD_DOCS=OFF \
           -D WITH_CUDA=OFF"
 
-        if [ "${{ matrix.version_info.vc_version }}" == "vc15" ]; then
-          CMAKE_FLAGS="$CMAKE_FLAGS -G \"Visual Studio 15 2017 Win64\""
-        fi
-
         if [ "${{ matrix.version_info.opencv_version }}" != "2.4.13" ]; then
           CMAKE_FLAGS="$CMAKE_FLAGS \
             -D OPENCV_EXTRA_MODULES_PATH=../opencv_contrib/modules \
@@ -74,7 +70,11 @@ jobs:
             -D WITH_OPENEXR=OFF"
         fi
 
-        cmake ../opencv $CMAKE_FLAGS
+        if [ "${{ matrix.version_info.vc_version }}" == "vc15" ]; then
+          cmake ../opencv $CMAKE_FLAGS -G "Visual Studio 15 2017 Win64"
+        else
+          cmake ../opencv $CMAKE_FLAGS
+        fi
 
     - name: Build OpenCV
       shell: bash
