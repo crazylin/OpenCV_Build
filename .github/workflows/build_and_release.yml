@@ -43,7 +43,6 @@ jobs:
       run: |
         cmake ../opencv \
           -D CMAKE_BUILD_TYPE=Release \
-          -D CMAKE_INSTALL_PREFIX=./install \
           -D OPENCV_EXTRA_MODULES_PATH=../opencv_contrib/modules \
           -D BUILD_EXAMPLES=OFF \
           -D BUILD_TESTS=OFF \
@@ -54,6 +53,15 @@ jobs:
     - name: Build OpenCV
       shell: bash
       working-directory: ./build
+      run: cmake --build . --config Release
+
+    - name: Install OpenCV
+      shell: bash
+      working-directory: ./build
+      run: cmake --install . --config Release --prefix ../install
+
+    - name: Package Release
+      shell: bash
       run: |
         ARCHIVE_NAME="opencv-${{ matrix.opencv_version }}-win64"
         if [ "${{ matrix.os }}" == "windows-latest" ]; then
@@ -61,8 +69,8 @@ jobs:
         else
           ARCHIVE_NAME="${ARCHIVE_NAME}-vc16.zip"
         fi
-        cd build/install
-        7z a ../../${ARCHIVE_NAME} .
+        cd install
+        7z a ../${ARCHIVE_NAME} .
 
     - name: Create Release and Upload Asset
       uses: softprops/action-gh-release@v2
