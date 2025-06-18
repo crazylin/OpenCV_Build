@@ -9,32 +9,30 @@ jobs:
   build:
     permissions:
       contents: write
-    name: Build OpenCV ${{ matrix.opencv_version }}
-    runs-on: ${{ matrix.os }}
+    name: Build OpenCV ${{ matrix.version_info.opencv_version }} (${{ matrix.linkage }})
+    runs-on: ${{ matrix.version_info.os }}
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - opencv_version: '4.8.0'
-            os: windows-latest
-          - opencv_version: '4.5.5'
-            os: windows-latest
-          - opencv_version: '3.4.20'
-            os: windows-2019
+        version_info:
+          - { opencv_version: '4.8.0', os: windows-latest }
+          - { opencv_version: '4.5.5', os: windows-latest }
+          - { opencv_version: '3.4.20', os: windows-2019 }
+        linkage: [shared, static]
 
     steps:
     - name: Checkout OpenCV
       uses: actions/checkout@v4
       with:
         repository: opencv/opencv
-        ref: ${{ matrix.opencv_version }}
+        ref: ${{ matrix.version_info.opencv_version }}
         path: opencv
 
     - name: Checkout OpenCV Contrib
       uses: actions/checkout@v4
       with:
         repository: opencv/opencv_contrib
-        ref: ${{ matrix.opencv_version }}
+        ref: ${{ matrix.version_info.opencv_version }}
         path: opencv_contrib
 
     - name: Create Build Directory
@@ -45,14 +43,28 @@ jobs:
       shell: bash
       working-directory: ./build
       run: |
-        cmake ../opencv \
-          -D CMAKE_BUILD_TYPE=Release \
+        BUILD_SHARED_LIBS_FLAG="ON"
+        if [ "${{ matrix.linkage }}" == "static" ]; then
+          BUILD_SHARED_LIBS_FLAG="OFF"
+        fi
+
+        CMAKE_FLAGS="-D CMAKE_BUILD_TYPE=Release \
+          -D BUILD_SHARED_LIBS=${BUILD_SHARED_LIBS_FLAG} \
           -D OPENCV_EXTRA_MODULES_PATH=../opencv_contrib/modules \
           -D BUILD_EXAMPLES=OFF \
           -D BUILD_TESTS=OFF \
           -D BUILD_PERF_TESTS=OFF \
           -D BUILD_DOCS=OFF \
-          -D WITH_CUDA=OFF
+          -D WITH_CUDA=OFF \
+          -D OPENCV_ENABLE_NONFREE=ON"
+
+        if [ "${{ matrix.linkage }}" == "static" ]; then
+          CMAKE_FLAGS="$CMAKE_FLAGS \
+            -D WITH_TBB=OFF \
+            -D WITH_OPENEXR=OFF"
+        fi
+
+        cmake ../opencv $CMAKE_FLAGS
 
     - name: Build OpenCV
       shell: bash
@@ -68,12 +80,16 @@ jobs:
       shell: bash
       id: package
       run: |
-        ARCHIVE_NAME="opencv-${{ matrix.opencv_version }}-win64"
-        if [ "${{ matrix.os }}" == "windows-latest" ]; then
-          ARCHIVE_NAME="${ARCHIVE_NAME}-vc17.zip"
+        ARCHIVE_NAME="opencv-${{ matrix.version_info.opencv_version }}-win64"
+        if [ "${{ matrix.version_info.os }}" == "windows-latest" ]; then
+          ARCHIVE_NAME="${ARCHIVE_NAME}-vc17"
         else
-          ARCHIVE_NAME="${ARCHIVE_NAME}-vc16.zip"
+          ARCHIVE_NAME="${ARCHIVE_NAME}-vc16"
         fi
+        if [ "${{ matrix.linkage }}" == "static" ]; then
+          ARCHIVE_NAME="${ARCHIVE_NAME}-static"
+        fi
+        ARCHIVE_NAME="${ARCHIVE_NAME}.zip"
         cd install
         7z a ../${ARCHIVE_NAME} .
         echo "archive_name=${ARCHIVE_NAME}" >> $GITHUB_OUTPUT
@@ -81,7 +97,7 @@ jobs:
     - name: Upload Artifact
       uses: actions/upload-artifact@v4
       with:
-        name: opencv-build-${{ matrix.opencv_version }}
+        name: opencv-build-${{ matrix.version_info.opencv_version }}-${{ matrix.linkage }}
         path: ${{ steps.package.outputs.archive_name }}
         retention-days: 1
 
@@ -104,7 +120,7 @@ jobs:
           tag_name: build-${{ github.run_number }}
           name: OpenCV Builds (Run ${{ github.run_number }})
           body: |
-            Compiled OpenCV builds for multiple versions. See attached assets.
-            - OpenCV 4.8.0 (windows-latest, VS2022)
-            - OpenCV 4.5.5 (windows-latest, VS2022)
-            - OpenCV 3.4.20 (windows-2019, VS2019) 
+            Compiled OpenCV builds for multiple versions (shared and static). See attached assets.
+            - OpenCV 4.8.0 (windows-latest, VS2022) - shared & static
+            - OpenCV 4.5.5 (windows-latest, VS2022) - shared & static
+            - OpenCV 3.4.20 (windows-2019, VS2019) - shared & static 
