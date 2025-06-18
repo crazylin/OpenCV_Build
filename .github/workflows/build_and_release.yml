@@ -1,0 +1,67 @@
+name: Build and Release OpenCV
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build OpenCV ${{ matrix.opencv_version }}
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        opencv_version: ['4.8.0', '4.5.5', '3.4.20']
+
+    steps:
+    - name: Checkout OpenCV
+      uses: actions/checkout@v4
+      with:
+        repository: opencv/opencv
+        ref: ${{ matrix.opencv_version }}
+        path: opencv
+
+    - name: Checkout OpenCV Contrib
+      uses: actions/checkout@v4
+      with:
+        repository: opencv/opencv_contrib
+        ref: ${{ matrix.opencv_version }}
+        path: opencv_contrib
+
+    - name: Create Build Directory
+      run: mkdir build
+      shell: bash
+
+    - name: Configure CMake
+      shell: bash
+      working-directory: ./build
+      run: |
+        cmake ../opencv \
+          -D CMAKE_BUILD_TYPE=Release \
+          -D CMAKE_INSTALL_PREFIX=./install \
+          -D OPENCV_EXTRA_MODULES_PATH=../opencv_contrib/modules \
+          -D BUILD_EXAMPLES=OFF \
+          -D BUILD_TESTS=OFF \
+          -D BUILD_PERF_TESTS=OFF \
+          -D BUILD_DOCS=OFF \
+          -D WITH_CUDA=OFF \
+          -G "Visual Studio 17 2022" -A x64
+
+    - name: Build OpenCV
+      shell: bash
+      working-directory: ./build
+      run: cmake --build . --config Release --target INSTALL
+
+    - name: Package Release
+      shell: bash
+      run: |
+        cd build/install
+        7z a ../../opencv-${{ matrix.opencv_version }}-win64-vc17.zip .
+
+    - name: Create Release and Upload Asset
+      uses: softprops/action-gh-release@v2
+      with:
+        files: opencv-${{ matrix.opencv_version }}-win64-vc17.zip
+        tag_name: opencv-${{ matrix.opencv_version }}
+        body: |
+          OpenCV ${{ matrix.opencv_version }} for Windows (x64, VC17)
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
