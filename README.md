@@ -57,15 +57,15 @@ In the `jobs.build.strategy.matrix` section, you can add, remove, or change the 
       fail-fast: false
       matrix:
         version_info:
-          - { opencv_version: '4.8.0', os: windows-latest } # Uses VS2022
-          - { opencv_version: '4.5.5', os: windows-latest }
-          - { opencv_version: '3.4.20', os: windows-2019 } # Uses VS2019
-          - { opencv_version: '2.4.13', os: windows-2019 }
+          - { opencv_version: '4.8.0', os: windows-latest, vc_version: 'vc17' } # VS2022
+          - { opencv_version: '4.5.5', os: windows-latest, vc_version: 'vc17' }
+          - { opencv_version: '3.4.20', os: windows-2019, vc_version: 'vc16' } # VS2019
+          - { opencv_version: '2.4.13', os: windows-2019, vc_version: 'vc14' } # VS2015
         linkage: [shared, static]
 # ...
 ```
 
-> **Note**: The workflow automatically detects older versions like `2.4.13` that do not have a separate `opencv_contrib` repository and adjusts the build process accordingly.
+> **Note**: The workflow automatically detects older versions like `2.4.13` and uses the appropriate Visual Studio toolset (e.g., VS 2015) for compilation. It also handles versions without a separate `opencv_contrib` repository and adjusts the build process accordingly.
 
 ### Modify CMake Parameters
 

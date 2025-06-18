@@ -16,12 +16,18 @@ jobs:
       matrix:
         version_info:
           - { opencv_version: '4.8.0', os: windows-latest }
-          - { opencv_version: '4.5.5', os: windows-latest }
-          - { opencv_version: '3.4.20', os: windows-2019 }
-          - { opencv_version: '2.4.13', os: windows-2019 }
+          - { opencv_version: '4.5.5', os: windows-latest, vc_version: 'vc17' }
+          - { opencv_version: '3.4.20', os: windows-2019, vc_version: 'vc16' }
+          - { opencv_version: '2.4.13', os: windows-2019, vc_version: 'vc14' }
         linkage: [shared, static]
 
     steps:
+    - name: Set up MSVC for VS 2015
+      if: matrix.version_info.vc_version == 'vc14'
+      uses: ilammy/msvc-dev-cmd@v1
+      with:
+        vsversion: '2015'
+
     - name: Checkout OpenCV
       uses: actions/checkout@v4
       with:
@@ -58,6 +64,10 @@ jobs:
           -D BUILD_DOCS=OFF \
           -D WITH_CUDA=OFF"
 
+        if [ "${{ matrix.version_info.vc_version }}" == "vc14" ]; then
+          CMAKE_FLAGS="$CMAKE_FLAGS -G \"Visual Studio 14 2015 Win64\""
+        fi
+
         if [ "${{ matrix.version_info.opencv_version }}" != "2.4.13" ]; then
           CMAKE_FLAGS="$CMAKE_FLAGS \
             -D OPENCV_EXTRA_MODULES_PATH=../opencv_contrib/modules \
@@ -86,12 +96,7 @@ jobs:
       shell: bash
       id: package
       run: |
-        ARCHIVE_NAME="opencv-${{ matrix.version_info.opencv_version }}-win64"
-        if [ "${{ matrix.version_info.os }}" == "windows-latest" ]; then
-          ARCHIVE_NAME="${ARCHIVE_NAME}-vc17"
-        else
-          ARCHIVE_NAME="${ARCHIVE_NAME}-vc16"
-        fi
+        ARCHIVE_NAME="opencv-${{ matrix.version_info.opencv_version }}-win64-${{ matrix.version_info.vc_version }}"
         if [ "${{ matrix.linkage }}" == "static" ]; then
           ARCHIVE_NAME="${ARCHIVE_NAME}-static"
         fi
@@ -127,7 +132,7 @@ jobs:
           name: OpenCV Builds (Run ${{ github.run_number }})
           body: |
             Compiled OpenCV builds for multiple versions (shared and static). See attached assets.
-            - OpenCV 4.8.0 (windows-latest, VS2022) - shared & static
-            - OpenCV 4.5.5 (windows-latest, VS2022) - shared & static
-            - OpenCV 3.4.20 (windows-2019, VS2019) - shared & static
-            - OpenCV 2.4.13 (windows-2019, VS2019) - shared & static 
+            - OpenCV 4.8.0 (windows-latest, VS2022/vc17) - shared & static
+            - OpenCV 4.5.5 (windows-latest, VS2022/vc17) - shared & static
+            - OpenCV 3.4.20 (windows-2019, VS2019/vc16) - shared & static
+            - OpenCV 2.4.13 (windows-2019, VS2015/vc14) - shared & static 
