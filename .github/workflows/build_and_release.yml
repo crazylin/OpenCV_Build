@@ -15,19 +15,13 @@ jobs:
       fail-fast: false
       matrix:
         version_info:
-          - { opencv_version: '4.8.0', os: windows-latest }
+          - { opencv_version: '4.8.0', os: windows-latest, vc_version: 'vc17' }
           - { opencv_version: '4.5.5', os: windows-latest, vc_version: 'vc17' }
           - { opencv_version: '3.4.20', os: windows-2019, vc_version: 'vc16' }
-          - { opencv_version: '2.4.13', os: windows-2019, vc_version: 'vc14' }
+          - { opencv_version: '2.4.13', os: windows-2019, vc_version: 'vc15' }
         linkage: [shared, static]
 
     steps:
-    - name: Set up MSVC for VS 2015
-      if: matrix.version_info.vc_version == 'vc14'
-      uses: ilammy/msvc-dev-cmd@v1
-      with:
-        vsversion: '2015'
-
     - name: Checkout OpenCV
       uses: actions/checkout@v4
       with:
@@ -64,8 +58,8 @@ jobs:
           -D BUILD_DOCS=OFF \
           -D WITH_CUDA=OFF"
 
-        if [ "${{ matrix.version_info.vc_version }}" == "vc14" ]; then
-          CMAKE_FLAGS="$CMAKE_FLAGS -G \"Visual Studio 14 2015 Win64\""
+        if [ "${{ matrix.version_info.vc_version }}" == "vc15" ]; then
+          CMAKE_FLAGS="$CMAKE_FLAGS -G \"Visual Studio 15 2017 Win64\""
         fi
 
         if [ "${{ matrix.version_info.opencv_version }}" != "2.4.13" ]; then
@@ -135,4 +129,4 @@ jobs:
             - OpenCV 4.8.0 (windows-latest, VS2022/vc17) - shared & static
             - OpenCV 4.5.5 (windows-latest, VS2022/vc17) - shared & static
             - OpenCV 3.4.20 (windows-2019, VS2019/vc16) - shared & static
-            - OpenCV 2.4.13 (windows-2019, VS2015/vc14) - shared & static 
+            - OpenCV 2.4.13 (windows-2019, VS2017/vc15) - shared & static 
