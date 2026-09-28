@@ -1,0 +1,170 @@
+# 按 FaceUnity fuai.dll 内嵌的 getBuildInformation() 复刻 OpenCV 4.5.1 构建：
+#   MSVC v141 (VS2017 14.16, Hostx86/x64)、静态库 + 静态 CRT (/MT)、C++11、/fp:precise
+#   只编 core/features2d/imgproc/photo/video，IPP/OpenCL/Eigen/TBB/OpenMP/ITT 全部关闭
+#   CPU baseline SSE3，dispatch SSE4_1;SSE4_2;AVX;FP16;AVX2;AVX512_SKX，并行框架 Concurrency
+# 注意：厂商版本串为 4.5.1-25-gbe3d701-dirty（私有 fork），这里只能用上游 4.5.1 源码。
+name: Build OpenCV 4.5.1 (fuai-lite profile)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ "fuai-opencv-4.5.1" ]
+    paths:
+      - ".github/workflows/build_opencv_451_fuai_lite.yml"
+
+permissions:
+  contents: write
+
+env:
+  OPENCV_VERSION: "4.5.1"
+  WINDOWS_SDK: "10.0.19041.0"
+  ARCHIVE_NAME: "opencv-4.5.1-win64-vc15-v141-static-mt-fuai-lite.zip"
+
+jobs:
+  build:
+    name: OpenCV 4.5.1 static /MT (v141, fuai-lite)
+    runs-on: windows-2022
+    timeout-minutes: 150
+    steps:
+      - name: Checkout OpenCV
+        uses: actions/checkout@v4
+        with:
+          repository: opencv/opencv
+          ref: ${{ env.OPENCV_VERSION }}
+          path: opencv
+          fetch-depth: 1
+
+      # runner 镜像只带 v143/14.29，需要现装 VS2017 的 v141 (14.16) 工具集
+      - name: Install MSVC v141 toolset (14.16)
+        id: toolset
+        shell: pwsh
+        run: |
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $vsPath = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          Write-Host "Visual Studio: $vsPath"
+          $installer = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vs_installer.exe"
+          $installArgs = "modify --installPath `"$vsPath`" --add Microsoft.VisualStudio.Component.VC.v141.x86.x64 --quiet --norestart --nocache"
+          $proc = Start-Process -FilePath $installer -ArgumentList $installArgs -Wait -PassThru
+          Write-Host "vs_installer exit code: $($proc.ExitCode)"
+          $toolsets = @(Get-ChildItem "$vsPath\VC\Tools\MSVC" -Directory | Where-Object Name -like '14.16.*')
+          if ($toolsets.Count -eq 0) { throw 'v141 (14.16) toolset not found after install' }
+          $toolset = $toolsets[0].FullName
+          Write-Host "v141 toolset: $toolset"
+          New-Item -ItemType Directory -Force build-info | Out-Null
+          # cl 的版本横幅写在 stderr
+          $cl = "$toolset\bin\Hostx86\x64\cl.exe"
+          Start-Process -FilePath $cl -NoNewWindow -Wait -RedirectStandardError build-info\cl_version.txt -RedirectStandardOutput build-info\cl_usage.txt
+          Get-Content build-info\cl_version.txt | Select-Object -First 1
+          "toolset=$toolset" >> $env:GITHUB_OUTPUT
+
+      - name: Configure CMake
+        shell: pwsh
+        run: |
+          cmake --version
+          $flags = @(
+            '-G', 'Visual Studio 17 2022', '-A', 'x64', '-T', 'v141,host=x86',
+            "-DCMAKE_SYSTEM_VERSION=$env:WINDOWS_SDK",
+            "-DCMAKE_INSTALL_PREFIX=$(($PWD.Path -replace '\\', '/'))/install",
+            # 链接形态：静态库 + 静态 CRT
+            '-DBUILD_SHARED_LIBS=OFF',
+            '-DBUILD_WITH_STATIC_CRT=ON',
+            '-DENABLE_PRECOMPILED_HEADERS=OFF',
+            # CPU 指令集：与厂商 requested 一致
+            '-DCPU_BASELINE=SSE3',
+            '-DCPU_DISPATCH=SSE4_1;SSE4_2;AVX;FP16;AVX2;AVX512_SKX',
+            # 模块：只保留 core features2d imgproc photo video
+            '-DBUILD_opencv_calib3d=OFF',
+            '-DBUILD_opencv_flann=OFF',
+            '-DBUILD_opencv_gapi=OFF',
+            '-DBUILD_opencv_highgui=OFF',
+            '-DBUILD_opencv_imgcodecs=OFF',
+            '-DBUILD_opencv_ml=OFF',
+            '-DBUILD_opencv_objdetect=OFF',
+            '-DBUILD_opencv_stitching=OFF',
+            '-DBUILD_opencv_videoio=OFF',
+            '-DBUILD_opencv_world=OFF',
+            '-DBUILD_opencv_apps=OFF',
+            '-DBUILD_JAVA=OFF',
+            '-DWITH_PROTOBUF=OFF',
+            '-DBUILD_TESTS=OFF',
+            '-DBUILD_PERF_TESTS=OFF',
+            '-DBUILD_EXAMPLES=OFF',
+            '-DBUILD_DOCS=OFF',
+            # 会改变数值路径的后端：全部关闭
+            '-DWITH_IPP=OFF',
+            '-DWITH_OPENCL=OFF',
+            '-DWITH_EIGEN=OFF',
+            '-DWITH_TBB=OFF',
+            '-DWITH_OPENMP=OFF',
+            '-DWITH_CUDA=OFF',
+            '-DWITH_ITT=OFF',
+            '-DCV_TRACE=OFF',
+            '-DWITH_QUIRC=OFF',
+            # Media I/O / Video I/O：厂商只剩 zlib
+            '-DWITH_PNG=OFF',
+            '-DWITH_JPEG=OFF',
+            '-DWITH_TIFF=OFF',
+            '-DWITH_WEBP=OFF',
+            '-DWITH_OPENJPEG=OFF',
+            '-DWITH_JASPER=OFF',
+            '-DWITH_OPENEXR=OFF',
+            '-DWITH_IMGCODEC_HDR=OFF',
+            '-DWITH_IMGCODEC_SUNRASTER=OFF',
+            '-DWITH_IMGCODEC_PXM=OFF',
+            '-DWITH_IMGCODEC_PFM=OFF',
+            '-DWITH_FFMPEG=OFF',
+            '-DWITH_GSTREAMER=OFF'
+          )
+          cmake -S opencv -B build @flags
+          if ($LASTEXITCODE -ne 0) { throw "cmake configure failed: $LASTEXITCODE" }
+          Copy-Item build\version_string.tmp build-info\
+          Write-Host '===== getBuildInformation() ====='
+          Get-Content build\version_string.tmp
+
+      - name: Build
+        shell: pwsh
+        run: |
+          cmake --build build --config Release --parallel
+          if ($LASTEXITCODE -ne 0) { throw "build failed: $LASTEXITCODE" }
+
+      - name: Install and collect build info
+        shell: pwsh
+        run: |
+          cmake --install build --config Release
+          if ($LASTEXITCODE -ne 0) { throw "install failed: $LASTEXITCODE" }
+          foreach ($f in 'cvconfig.h', 'cv_cpu_config.h', 'CMakeCache.txt') {
+            Copy-Item (Join-Path build $f) build-info\ -ErrorAction Stop
+          }
+          Copy-Item build\modules\core\version_string.inc build-info\ -ErrorAction SilentlyContinue
+          Copy-Item -Recurse build-info install\build-info
+          Get-ChildItem -Recurse install -Filter *.lib | ForEach-Object { '{0,12}  {1}' -f $_.Length, $_.FullName }
+          7z a $env:ARCHIVE_NAME .\install\*
+          if ($LASTEXITCODE -ne 0) { throw "7z failed: $LASTEXITCODE" }
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: opencv-4.5.1-fuai-lite
+          path: |
+            ${{ env.ARCHIVE_NAME }}
+            build-info/
+          retention-days: 14
+
+      - name: Publish release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = "opencv-4.5.1-fuai-lite-r${{ github.run_number }}"
+          $notes = @(
+            'OpenCV 4.5.1 static /MT build matching the configuration embedded in FaceUnity fuai.dll.',
+            '',
+            '- Toolset: MSVC v141 (14.16), Hostx86/x64, C++11, /fp:precise',
+            '- Modules: core features2d imgproc photo video',
+            '- Disabled: IPP, OpenCL, Eigen, TBB, OpenMP, ITT/trace, CUDA',
+            '- CPU baseline SSE3; dispatch SSE4_1 SSE4_2 AVX FP16 AVX2 AVX512_SKX',
+            '',
+            'Source is upstream 4.5.1; the vendor build came from a private fork (4.5.1-25-gbe3d701-dirty).',
+            'build-info/ inside the archive contains getBuildInformation(), cvconfig.h, cv_cpu_config.h and CMakeCache.txt.'
+          ) -join "`n"
+          gh release create $tag $env:ARCHIVE_NAME --repo "${{ github.repository }}" --target "${{ github.sha }}" --title "OpenCV 4.5.1 fuai-lite (run ${{ github.run_number }})" --notes $notes --latest=false
